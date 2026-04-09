@@ -1,0 +1,38 @@
+# mautrix-telegram configuration file
+# iDrzn Silver Matrix - Telegram Bridge Config
+
+homeserver:
+    address: http://synapse:8008
+    domain: YOUR_DOMAIN
+    verify_ssl: true
+
+appservice:
+    address: http://telegram-bridge:29317
+    hostname: 0.0.0.0
+    port: 29317
+    database: postgres://matrix:REPLACE_WITH_DB_PASSWORD@matrix-db/mautrix_telegram?sslmode=disable
+    
+    # These tokens must match the ones in your registration.yaml
+    as_token: REPLACE_WITH_AS_TOKEN
+    hs_token: REPLACE_WITH_HS_TOKEN
+
+bridge:
+    username_template: telegram_{{.}}
+    alias_template: tlgrm_{{.}}
+    displayname_template: "{{.FirstName}} {{.LastName}}"
+    
+    # Telegram API credentials (Get these from https://my.telegram.org)
+    telegram_api_id: 12345
+    telegram_api_hash: REPLACE_WITH_TELEGRAM_API_HASH
+    
+    # Permissions
+    permissions:
+        "YOUR_DOMAIN": "user"
+        "@admin:YOUR_DOMAIN": "admin"
+
+    relaybot:
+        enabled: false
+
+logging:
+    level: info
+    print_level: info
