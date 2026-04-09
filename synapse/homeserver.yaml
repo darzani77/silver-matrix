@@ -1,0 +1,176 @@
+# ============================================================
+# Matrix Synapse — homeserver.yaml
+# iDrzn Homelab — Optimiert für 2026
+# ============================================================
+
+# === Server Identity ===
+server_name: "YOUR_DOMAIN"
+public_baseurl: "https://YOUR_DOMAIN/"
+pid_file: /data/homeserver.pid
+
+matrix_authentication_service:
+  enabled: true
+  endpoint: http://mas:8080/
+  secret: "REPLACE_WITH_MAS_SECRET"
+  #skip_user_id_for_authentication_lookup: ["@whatsappbot:YOUR_DOMAIN"]
+
+# === Well-Known (Federation + Element Call) ===
+serve_server_wellknown: true
+extra_well_known_client_content:
+  "m.turn":
+    uris:
+      - "turn:rtc.YOUR_DOMAIN:3478?transport=udp"
+      - "turn:rtc.YOUR_DOMAIN:5349?transport=tcp"
+      - "turns:rtc.YOUR_DOMAIN:5349?transport=tcp"
+  "org.matrix.msc4143.rtc_foci":
+    - type: livekit
+      livekit_service_url: "https://jwt.YOUR_DOMAIN"
+  "org.matrix.msc2965.authentication":
+    issuer: "https://auth.YOUR_DOMAIN/"
+    account: "https://auth.YOUR_DOMAIN/account"
+
+# === Listeners ===
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    x_forwarded: true
+    bind_addresses: ['0.0.0.0']
+    resources:
+      - names: [client, federation]
+        compress: false
+
+# === Datenbank (PostgreSQL) ===
+database:
+  name: psycopg2
+  txn_limit: 10000
+  args:
+    user: matrix
+    password: REPLACE_WITH_DB_PASSWORD
+    database: matrix
+    host: matrix-db
+    port: 5432
+    cp_min: 5
+    cp_max: 10
+    keepalives_idle: 10
+    keepalives_interval: 10
+    keepalives_count: 3
+
+# === Logging ===
+log_config: "/data/YOUR_DOMAIN.log.config"
+
+# === Media ===
+media_store_path: /data/media_store
+max_upload_size: 250M
+
+media_retention:
+  local_media_lifetime: 120d
+  remote_media_lifetime: 120d
+
+# === URL Previews ===
+url_preview_enabled: true
+url_preview_ip_range_blacklist:
+  - '127.0.0.0/8'
+  - '10.0.0.0/8'
+  - '172.16.0.0/12'
+  - '192.168.0.0/16'
+  - '100.64.0.0/10'
+  - '192.0.0.0/24'
+  - '169.254.0.0/16'
+  - '::1/128'
+  - 'fe80::/10'
+  - 'fc00::/7'
+
+# === Registrierung ===
+enable_registration: false
+registration_shared_secret: "REPLACE_WITH_REGISTRATION_SECRET"
+
+# === Secrets ===
+macaroon_secret_key: "REPLACE_WITH_MACAROON_SECRET"
+form_secret: "REPLACE_WITH_FORM_SECRET"
+
+# === Signing Key ===
+signing_key_path: "/data/YOUR_DOMAIN.signing.key"
+
+# === Trusted Key Servers ===
+trusted_key_servers:
+  - server_name: "matrix.org"
+
+suppress_key_server_warning: true
+
+# === Federation ===
+allow_public_rooms_over_federation: false
+
+# === Caching (optimiert für 64GB RAM) ===
+caches:
+  global_factor: 1.0
+  per_cache_factors:
+    get_users_in_room: 2.0
+    _get_state_group_for_events: 2.0
+
+# === Experimental Features (Element Call + Sliding Sync) ===
+experimental_features:
+  msc3266_enabled: true
+  msc4222_enabled: true
+  msc4140_enabled: true
+  msc4108_enabled: true
+  msc3202_transaction_extensions: true
+  msc2409_to_device_messages_enabled: true
+# === Element Call / MatrixRTC ===
+max_event_delay_duration: 24h
+
+# === TURN Server for Element Call (LiveKit) ===
+turn_uris:
+  - "turn:rtc.YOUR_DOMAIN:3478?transport=udp"
+  - "turn:rtc.YOUR_DOMAIN:5349?transport=tcp"
+  - "turns:rtc.YOUR_DOMAIN:5349?transport=tcp"
+turn_shared_secret: "REPLACE_WITH_TURN_SECRET"
+turn_user_lifetime: 86400000 # 24 hours in ms
+
+
+# === Rate Limiting (optimiert für Element Call) ===
+rc_message:
+  per_second: 0.5
+  burst_count: 30
+
+rc_delayed_event_mgmt:
+  per_second: 1
+  burst_count: 20
+
+rc_login:
+  address:
+    per_second: 0.5
+    burst_count: 5
+  account:
+    per_second: 0.5
+    burst_count: 5
+
+rc_registration:
+  per_second: 0.17
+  burst_count: 3
+
+# === Presence ===
+presence:
+  enabled: true
+
+# === Push Notifications ===
+push:
+  include_content: true
+
+# === App Services (Bridges) ===
+app_service_config_files:
+  - /data/discord-registration.yaml
+  - /data/signal-registration.yaml
+  - /data/telegram-registration.yaml
+  - /data/whatsapp-registration.yaml
+
+
+# === Reporting ===
+report_stats: false
+
+# === Metrics (optional, für Monitoring) ===
+enable_metrics: false
+auto_accept_invites:
+  enabled: true
+  only_for_direct_messages: true
+# vim:ft=yaml
