@@ -1,0 +1,254 @@
+version: '3.8'
+
+services:
+  matrix-db:
+    image: postgres:18
+    container_name: matrix-db
+    hostname: matrix-db
+    networks:
+      - matrix-net
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+      - TZ=${TZ:-Europe/Berlin}
+    volumes:
+      - ./data/db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  synapse:
+    image: ghcr.io/element-hq/synapse
+    container_name: synapse
+    hostname: synapse
+    user: "${PUID:-991}:${PGID:-991}"
+    networks:
+      - matrix-net
+    environment:
+      - TZ=${TZ:-Europe/Berlin}
+      - SYNAPSE_CONFIG_DIR=/data
+      - SYNAPSE_CONFIG_PATH=/data/homeserver.yaml
+    volumes:
+      - ./synapse:/data
+      - ./synapse/whatsapp-registration.yaml:/data/whatsapp-registration.yaml:ro
+      - ./synapse/discord-registration.yaml:/data/discord-registration.yaml:ro
+      - ./synapse/signal-registration.yaml:/data/signal-registration.yaml:ro
+      - ./synapse/telegram-registration.yaml:/data/telegram-registration.yaml:ro
+    ports:
+      - "8008:8008"
+      - "8448:8448" # Federation port
+    depends_on:
+      matrix-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fSs http://localhost:8008/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mas:
+    image: ghcr.io/element-hq/matrix-authentication-service
+    container_name: mas
+    ports:
+      - "8090:8080"
+    environment:
+      - MAS_CONFIG=/config/config.yaml
+      - TZ=${TZ:-Europe/Berlin}
+    volumes:
+      - ./mas/config.yaml:/config/config.yaml:ro
+    depends_on:
+      - matrix-db
+    extra_hosts:
+      - "authentik.${DOMAIN}:1.4.9.10" # Replace 1.4.9.10 with your Authentik IP if used
+    networks:
+      - matrix-net
+    restart: unless-stopped
+
+  element:
+    image: vectorim/element-web:latest
+    container_name: element
+    hostname: element
+    networks:
+      - matrix-net
+    volumes:
+      - ./element/config.json:/app/config.json:ro
+    ports:
+      - "80:80" # Expose Element Web on port 80
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  whatsapp-bridge:
+    image: dock.mau.dev/mautrix/whatsapp:latest
+    container_name: whatsapp-bridge
+    hostname: whatsapp-bridge
+    dns:
+      - 1.4.9.1 # Replace with your DNS server if needed
+    networks:
+      - matrix-net
+    volumes:
+      - ./bridges/whatsapp:/data
+    depends_on:
+      - synapse
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  telegram-bridge:
+    container_name: telegram-bridge
+    image: dock.mau.dev/mautrix/telegram:latest
+    hostname: telegram-bridge
+    dns:
+      - 1.4.9.1 # Replace with your DNS server if needed
+    networks:
+      - matrix-net
+    volumes:
+      - ./bridges/telegram:/data
+    depends_on:
+      - synapse
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  signal-bridge:
+    image: dock.mau.dev/mautrix/signal:latest
+    container_name: signal-bridge
+    hostname: signal-bridge
+    dns:
+      - 1.4.9.1 # Replace with your DNS server if needed
+    networks:
+      - matrix-net
+    volumes:
+      - ./bridges/signal:/data
+    depends_on:
+      - synapse
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  discord-bridge:
+    image: dock.mau.dev/mautrix/discord:latest
+    container_name: discord-bridge
+    hostname: discord-bridge
+    dns:
+      - 1.4.9.1 # Replace with your DNS server if needed
+    networks:
+      - matrix-net
+    volumes:
+      - ./bridges/discord:/data
+    depends_on:
+      - synapse
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: livekit
+    hostname: livekit
+    command: --config /etc/livekit.yaml
+    networks:
+      - matrix-net
+    ports:
+      - "7880:7880/tcp"
+      - "7881:7881/tcp"
+      - "3478:3478/udp" # STUN/TURN UDP
+      - "5349:5349/tcp" # STUN/TURN TLS
+      - "50100-50200:50100-50200/udp" # WebRTC media ports
+    volumes:
+      - ./livekit/config.yaml:/etc/livekit.yaml:ro
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  lk-jwt-service:
+    image: ghcr.io/element-hq/lk-jwt-service:latest
+    container_name: lk-jwt-service
+    hostname: lk-jwt-service
+    networks:
+      - matrix-net
+    ports:
+      - "8070:8080"
+    environment:
+      - LK_JWT_PORT=8080
+      - LIVEKIT_URL=wss://rtc.${DOMAIN}
+      - LIVEKIT_KEY=${LIVEKIT_API_KEY}
+      - LIVEKIT_SECRET=${LIVEKIT_API_SECRET}
+      - LIVEKIT_INSECURE_SKIP_VERIFY_TLS=YES_I_KNOW_WHAT_I_AM_DOING # Only for testing, remove in production
+      - LIVEKIT_FULL_ACCESS_HOMESERVERS=${DOMAIN}
+      - TZ=${TZ:-Europe/Berlin}
+    depends_on:
+      - livekit
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  matrix-net:
+    driver: bridge
+    internal: true
+  # The 'proxy' and 'home' networks are removed as Traefik is no longer used.
+  # If you need external access to bridges or other services, you might need to expose their ports directly.
