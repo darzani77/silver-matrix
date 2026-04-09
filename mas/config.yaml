@@ -1,0 +1,109 @@
+http:
+  listeners:
+  - name: web
+    resources:
+    - name: discovery
+    - name: human
+    - name: oauth
+    - name: compat
+    - name: graphql
+    - name: assets
+    binds:
+    - address: '[::]:8080'
+    proxy_protocol: false
+  - name: internal
+    resources:
+    - name: health
+    binds:
+    - host: localhost
+      port: 8081
+    proxy_protocol: false
+  trusted_proxies:
+  - 1.4.9.0/24
+  - 192.168.0.0/16
+  - 172.16.0.0/12
+  - 10.0.0.0/10
+  - 127.0.0.1/8
+  public_base: https://auth.YOUR_DOMAIN/
+  issuer: https://auth.YOUR_DOMAIN/
+database:
+  uri: postgres://matrix:REPLACE_WITH_DB_PASSWORD@matrix-db/mas
+  max_connections: 10
+  min_connections: 0
+  connect_timeout: 30
+  idle_timeout: 600
+  max_lifetime: 1800
+email:
+  from: '"iDrzn Matrix" <REPLACE_WITH_EMAIL>'
+  reply_to: '"iDrzn Matrix" <REPLACE_WITH_EMAIL>'
+  transport: smtp
+  mode: starttls
+  hostname: smtp.protonmail.ch
+  port: 587
+  username: REPLACE_WITH_EMAIL
+  password: "REPLACE_WITH_SMTP_PASSWORD"
+secrets:
+  encryption: REPLACE_WITH_ENCRYPTION_SECRET
+  keys:
+  # IMPORTANT: Generate your own RSA private key using:
+  #   openssl genrsa -out rsa.pem 2048
+  - key: |
+      -----BEGIN RSA PRIVATE KEY-----
+      REPLACE_WITH_YOUR_GENERATED_RSA_PRIVATE_KEY
+      -----END RSA PRIVATE KEY-----
+  # IMPORTANT: Generate your own EC private key using:
+  #   openssl ecparam -name prime256v1 -genkey -noout -out ec256.pem
+  - key: |
+      -----BEGIN EC PRIVATE KEY-----
+      REPLACE_WITH_YOUR_GENERATED_EC_P256_PRIVATE_KEY
+      -----END EC PRIVATE KEY-----
+  # IMPORTANT: Generate your own EC private key using:
+  #   openssl ecparam -name secp384r1 -genkey -noout -out ec384.pem
+  - key: |
+      -----BEGIN EC PRIVATE KEY-----
+      REPLACE_WITH_YOUR_GENERATED_EC_P384_PRIVATE_KEY
+      -----END EC PRIVATE KEY-----
+  # IMPORTANT: Generate your own EC private key using:
+  #   openssl ecparam -name secp256k1 -genkey -noout -out ec256k1.pem
+  - key: |
+      -----BEGIN EC PRIVATE KEY-----
+      REPLACE_WITH_YOUR_GENERATED_EC_K256_PRIVATE_KEY
+      -----END EC PRIVATE KEY-----
+passwords:
+  enabled: true
+  schemes:
+    - version: 1
+      algorithm: bcrypt
+    - version: 2
+      algorithm: argon2id
+matrix:
+  kind: synapse
+  homeserver: YOUR_DOMAIN
+  endpoint: "http://synapse:8008"
+  secret: "REPLACE_WITH_MAS_SECRET"
+clients:
+  - client_id: 0000000000000000000SYNAPSE
+    client_auth_method: client_secret_basic
+    client_secret: "REPLACE_WITH_OIDC_CLIENT_SECRET"
+
+upstream_oauth2:
+  providers:
+    - id: 01HFRQFT5QFMJFGF01P7JAV2ME
+      human_name: Authentik
+      issuer: "https://authentik.YOUR_DOMAIN/application/o/matrix/"
+      client_id: "REPLACE_WITH_AUTHENTIK_CLIENT_ID"
+      client_secret: "REPLACE_WITH_AUTHENTIK_CLIENT_SECRET"
+      token_endpoint_auth_method: client_secret_basic
+      scope: "openid profile email"
+      claims_imports:
+        localpart:
+          action: force
+          template: "{{ user.preferred_username }}"
+          on_conflict: set
+        displayname:
+          action: suggest
+          template: "{{ user.name }}"
+        email:
+          action: suggest
+          template: "{{ user.email }}"
+          set_email_verification: always
