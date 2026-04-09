@@ -8,7 +8,7 @@ Dieses Projekt ist so konzipiert, dass es einfach mit **Docker** installiert wer
 
 - **Matrix Synapse**: Das Herzstück des Servers.
 - **Bridges**: Unterstützung für (WhatsApp, Telegram, Discord, Signal).
-- **Anrufe & Video**: Unterstützung für Gruppen-Video- und Audioanrufe über LiveKit, optimiert für iOS.
+- **Anrufe & Video**: Unterstützung für Gruppen-Video- und Audioanrufe über LiveKit.
 - **Authentifizierung**: Modernes Authentifizierungssystem (MAS) mit OIDC-Unterstützung.
 - **Datenbank**: Verwendung von PostgreSQL zur effizienten Datenverwaltung.
 - **Element Web**: Eine webbasierte Benutzeroberfläche für Matrix.
