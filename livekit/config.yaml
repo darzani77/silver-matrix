@@ -1,0 +1,25 @@
+port: 7880
+bind_addresses:
+  - "0.0.0.0"
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 50100
+  port_range_end: 50200
+  use_external_ip: true
+
+turn:
+  enabled: true
+  domain: rtc.YOUR_DOMAIN # Use your LiveKit domain
+  tls_port: 5349 # Standard TURN/TLS port
+  udp_port: 3478 # Standard TURN/UDP port
+  # LiveKit will generate its own certificates for TURN if cert_file and key_file are not specified.
+  # For production, it's recommended to provide your own valid SSL certificates.
+  # cert_file: /path/to/turn.crt
+  # key_file: /path/to/turn.key
+
+keys:
+  REPLACE_WITH_LIVEKIT_API_KEY: REPLACE_WITH_LIVEKIT_API_SECRET
+
+logging:
+  level: info
